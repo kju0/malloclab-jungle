@@ -24,11 +24,11 @@
  ********************************************************/
 team_t team = {
     /* Team name */
-    "ateam",
+    "swjungle8-week05-8",
     /* First member's full name */
-    "Harry Bovik",
+    "kju0",
     /* First member's email address */
-    "bovik@cs.cmu.edu",
+    "jujulia3040@gmail.com",
     /* Second member's full name (leave blank if none) */
     "",
     /* Second member's email address (leave blank if none) */
@@ -67,6 +67,7 @@ team_t team = {
 #define PREV_BLKP(bp)   ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
 static char *heap_listp;  // 처음에 쓸 큰 가용블록 힙을 만들어줌.
+char *prev_bp;
 
 
 //추가 코드
@@ -92,6 +93,7 @@ int mm_init(void)
     PUT(heap_listp + (3*WSIZE), PACK(0, 1)); /* Epilogue header */
 
     heap_listp += (2*WSIZE);
+    prev_bp = heap_listp;
     /* Extend the empty heap with a free block of CHUNKSIZE bytes */
     if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
         return -1;
@@ -194,6 +196,7 @@ static void *coalesce(void *bp)
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
         PUT(HDRP(bp), PACK(size, 0));
         PUT(FTRP(bp), PACK(size, 0));
+
     }
     else if (!prev_alloc && next_alloc) { /* Case 3 */
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
@@ -207,17 +210,33 @@ static void *coalesce(void *bp)
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
     }
+    prev_bp = bp;
     return bp;
 }
 
 static void *find_fit(size_t asize)
 {
     void *bp;
-    for (bp=heap_listp; GET_SIZE(HDRP(bp))>0; bp=NEXT_BLKP(bp))
+    //이전에 찾았던 가용 공간 이후부터 탐색 시작
+    for (bp=prev_bp; GET_SIZE(HDRP(bp))>0; bp=NEXT_BLKP(bp))
     {
         if (!GET_ALLOC(HDRP(bp)) && GET_SIZE(HDRP(bp)) >= asize)
+        {
             return bp;
+        }
     }
+
+    //찾지 못했다면 처음부터 재탐색
+    for (bp=heap_listp; bp!=prev_bp; bp=NEXT_BLKP(bp))
+    {
+        if (!GET_ALLOC(HDRP(bp)) && GET_SIZE(HDRP(bp)) >= asize)
+        {
+            return bp;   
+        }
+    }
+
+    //그래도 못 찾았다면 NULL 리턴
+    prev_bp = heap_listp;
     return NULL;
 }
 
@@ -231,10 +250,12 @@ static void place(void *bp, size_t asize)
         bp = NEXT_BLKP(bp);
         PUT(HDRP(bp), PACK(csize-asize, 0));
         PUT(FTRP(bp), PACK(csize-asize, 0));
+        prev_bp = bp;
     }
     else {
         PUT(HDRP(bp), PACK(csize, 1));
         PUT(FTRP(bp), PACK(csize, 1));
+        prev_bp = NEXT_BLKP(bp);
     }
 
 }
