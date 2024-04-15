@@ -28,11 +28,10 @@ team_t team = {
 // #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
 //가용 리스트 조작을 위한 기본 상수와 매크로
-
 /* Basic constants and macros */
 #define WSIZE       4       /* Word and header/footer size (bytes) */
 #define DSIZE       8       /* Double word size (bytes) */
-#define CHUNKSIZE   (1<<6) /* Extend heap (bytes) */
+#define CHUNKSIZE   (1<<12) /* Extend heap (bytes) */
 
 #define MAX(x, y) ((x) > (y)? (x):(y))
 
@@ -92,7 +91,6 @@ int mm_init(void)
     heap_listp += (4*WSIZE); //첫 가용 블록의 pred 가리키기
 
     /* Extend the empty heap with a free block of CHUNKSIZE bytes */
-    // explicit-LIFO : headp init
     if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
         return -1;
     return 0;
@@ -267,10 +265,32 @@ static void set_no_free_block(void *bp)
 
 static void add_free_block(void *bp)
 {
-    GET_SUCC(bp) = heap_listp;
-    //가용 리스트 요소가 한개일 경우
-    if (heap_listp != NULL){
-        GET_PRED(heap_listp) = bp;
+    //가용 리스트 힙이 비어있다면
+    if (heap_listp == NULL){
+        GET_SUCC(bp) = NULL;
+        heap_listp = bp;
+        return;
     }
-    heap_listp = bp;
+
+    //가용 리스트 노드가 한개라도 있다면
+    void *target = heap_listp;
+    
+    while(target < bp)
+    {
+        // target은 bp의 PRED가 될 위치의 값 
+        if (GET_SUCC(target) == NULL || GET_SUCC(target) > bp) break;
+        target = GET_SUCC(target);
+    }
+
+    if (target == heap_listp){
+        GET_SUCC(bp) = target;
+        GET_PRED(target) = bp;
+        heap_listp = bp;
+    } else
+    {
+        GET_PRED(bp) = target;
+        GET_SUCC(bp) = GET_SUCC(target);
+        if (GET_SUCC(target) != NULL) GET_PRED(GET_SUCC(target)) = bp;
+        GET_SUCC(target) = bp;
+    }
 }
