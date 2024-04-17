@@ -244,13 +244,19 @@ static void *coalesce(void *bp)
 
 static void *find_fit(size_t asize)
 {
+    void *min_bp = NULL;
+
     void *bp;
+    //이전에 찾았던 가용 공간 이후부터 탐색 시작
     for (bp=heap_listp; bp!=NULL; bp=GET_SUCC(bp))
     {
         if (GET_SIZE(HDRP(bp)) >= asize)
-            return bp;
+        {
+            if (min_bp == NULL || GET_SIZE(HDRP(min_bp)) > GET_SIZE(HDRP(bp))) min_bp = bp;
+        }
     }
-    return NULL;
+
+    return min_bp;
 }
 
 static void place(void *bp, size_t asize)
