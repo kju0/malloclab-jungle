@@ -32,7 +32,7 @@ team_t team = {
 /* Basic constants and macros */
 #define WSIZE       4       /* Word and header/footer size (bytes) */
 #define DSIZE       8       /* Double word size (bytes) */
-#define CHUNKSIZE   (1<<6) /* Extend heap (bytes) */
+#define CHUNKSIZE   (1<<12) /* Extend heap (bytes) */
 
 #define MAX(x, y) ((x) > (y)? (x):(y))
 
@@ -146,10 +146,32 @@ void mm_free(void *bp)
  */
 void *mm_realloc(void *ptr, size_t size)
 {
+    size += 2*WSIZE; //size는 payload 크기만 포함한다.
+
     void *oldptr = ptr;
     void *newptr;
-    size_t copySize;
+    void * next_ptr = NEXT_BLKP(ptr);
+
+    size_t copySize, nowSize;
+    nowSize = GET_SIZE(HDRP(ptr));
+    size_t nextSize = GET_SIZE(HDRP(next_ptr));
+
+    if (size <= nowSize) 
+        return ptr;
+
+    if (!GET_ALLOC(HDRP(next_ptr))) // 뒤 가용 블록 있는지 검사
+    {
+        if ((nowSize+nextSize) >= size)
+        {
+            set_no_free_block(next_ptr); // 현재+뒤 충족 시 뒤 블록 사용 처리
+            PUT(HDRP(ptr), PACK((nowSize+nextSize), 1));
+            PUT(FTRP(ptr), PACK((nowSize+nextSize), 1));
+            return ptr;
+        }
+    }
+
     
+    // 뒤로 충족하는 사이즈가 없는 경우 새로 할당
     newptr = mm_malloc(size);
     if (newptr == NULL)
       return NULL;
@@ -197,7 +219,6 @@ static void *coalesce(void *bp)
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
         PUT(HDRP(bp), PACK(size, 0));
         PUT(FTRP(bp), PACK(size, 0));
-        
     }
     else if (!prev_alloc && next_alloc) { /* Case 3 */
         set_no_free_block(PREV_BLKP(bp));
